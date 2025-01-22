@@ -150,7 +150,7 @@ class MainActivity : AppCompatActivity() {
         Log.d(TAG, "getRandomBitmapFromAssets: Buscando archivos en assets.")
         return try {
             val fileNames = assets.list("")?.filter {
-                it.endsWith(".png", true) || it.endsWith(".jpg", true) || it.endsWith(".jpeg", true)
+                it.endsWith(".bmp", true) || it.endsWith(".png", true) || it.endsWith(".jpg", true) || it.endsWith(".jpeg", true)
             } ?: emptyList()
 
             if (fileNames.isNotEmpty()) {
@@ -220,9 +220,11 @@ class MainActivity : AppCompatActivity() {
 
             // Generar el texto que la impresora entiende para imprimir
             val textBuilder = StringBuilder()
-            for (y in 0 until dithered.height step 32) {
-                val segmentHeight = if (y + 32 > dithered.height) dithered.height - y else 32
+            for (y in 0 until dithered.height step 16) {
+                val segmentHeight = if (y + 16 > dithered.height) dithered.height - y else 16
                 val segment = Bitmap.createBitmap(dithered, 0, y, dithered.width, segmentHeight)
+
+                //textBuilder.append("TEXTO DEMO")
 
                 textBuilder.append("<img>")
                     .append(
@@ -231,6 +233,7 @@ class MainActivity : AppCompatActivity() {
                         )
                     )
                     .append("</img>\n")
+
             }
             Log.d(TAG, "Texto para impresión generado. Longitud: ${textBuilder.length}")
 
