@@ -28,8 +28,6 @@ class MainActivity : AppCompatActivity() {
 
         /**
          * Permisos requeridos para Bluetooth (y se podrían añadir otros).
-         * Replicando la idea de tu amigo, si usas más cosas (cámara, audio, etc.),
-         * también los pondrías aquí.
          */
         private val REQUIRED_PERMISSIONS = mutableListOf(
             Manifest.permission.BLUETOOTH,
@@ -37,9 +35,8 @@ class MainActivity : AppCompatActivity() {
             Manifest.permission.BLUETOOTH_CONNECT,
             Manifest.permission.BLUETOOTH_SCAN
         ).apply {
-            // En dispositivos con Android <= P, podrías añadir WRITE_EXTERNAL_STORAGE
             if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
-                // add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
             }
         }.toTypedArray()
     }
@@ -49,19 +46,21 @@ class MainActivity : AppCompatActivity() {
     private var printer: EscPosPrinter? = null
 
     /**
-     * Igual que en el código de tu amigo, al finalizar el request de permisos,
-     * se llama de nuevo a [setupPrinter], sin hacer un chequeo manual de si se concedió
-     * todo o no. (Tu amigo llama a startCamera() de inmediato.)
+     * Se encarga de manejar la respuesta del sistema tras solicitar permisos.
      */
     private val activityResultLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { _ ->
-            // Tu amigo ignora la verificación y llama directamente a la acción principal.
-            // Aquí, llamamos a setupPrinter() (en su caso, a startCamera()).
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissionsMap ->
+            // Log para saber qué devolvió
+            permissionsMap.forEach { (perm, granted) ->
+                Log.d(TAG, "Permiso $perm concedido? $granted")
+            }
+            // Reintentamos setupPrinter()
             setupPrinter()
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Log.i(TAG, "onCreate: Iniciando la actividad")
         setContentView(R.layout.activity_main)
 
         // Referencia a tu botón de imprimir
@@ -69,17 +68,28 @@ class MainActivity : AppCompatActivity() {
 
         // Verificamos si ya están concedidos los permisos
         if (allPermissionsGranted()) {
+            Log.i(TAG, "Permisos ya concedidos. Se procede con setupPrinter()")
             setupPrinter()
         } else {
+            Log.w(TAG, "Faltan permisos. Mostrando diálogo para solicitarlos...")
             requestPermissions()
         }
 
-        // Evento al hacer clic en el botón
+        // Al hacer clic en el botón, intentamos imprimir
         btnPrint.setOnClickListener {
-            val bitmap = getRandomBitmapFromAssets()
-            if (bitmap == null) {
+            Log.d(TAG, "Botón imprimir clicado. Obteniendo imagen aleatoria.")
+            val result = getRandomBitmapFromAssets() // Retorna un Pair con (Bitmap?, nombreArchivo?)
+            val bitmap = result.first
+            val fileName = result.second
+
+            if (bitmap == null || fileName == null) {
                 Toast.makeText(this, "No se encontraron imágenes en /assets", Toast.LENGTH_SHORT).show()
+                Log.w(TAG, "No se encontraron imágenes en assets o no se pudo cargar el archivo.")
             } else {
+                // Muestro nombre del archivo en Toast y logs
+                Toast.makeText(this, "Se imprimirá la imagen: $fileName", Toast.LENGTH_LONG).show()
+                Log.i(TAG, "La imagen elegida para imprimir: $fileName")
+
                 printBluetooth(bitmap)
             }
         }
@@ -89,62 +99,79 @@ class MainActivity : AppCompatActivity() {
      * Comprueba si todos los permisos de la lista están concedidos.
      */
     private fun allPermissionsGranted(): Boolean {
-        return REQUIRED_PERMISSIONS.all { permiso ->
+        val allGranted = REQUIRED_PERMISSIONS.all { permiso ->
             ContextCompat.checkSelfPermission(this, permiso) == PackageManager.PERMISSION_GRANTED
         }
+        Log.d(TAG, "allPermissionsGranted? -> $allGranted")
+        return allGranted
     }
 
     /**
-     * Lanza el diálogo del sistema para pedir permisos (igual que el requestPermissions
-     * de tu amigo).
+     * Lanza el diálogo del sistema para pedir permisos
      */
     private fun requestPermissions() {
+        Log.i(TAG, "requestPermissions: Lanzando diálogo para pedir permisos.")
         activityResultLauncher.launch(REQUIRED_PERMISSIONS)
     }
 
     /**
-     * Configura la conexión con la impresora Bluetooth,
-     * usando la misma lógica que en tu versión previa.
+     * Configura la conexión con la impresora Bluetooth
      */
     @SuppressLint("MissingPermission")
     private fun setupPrinter() {
+        Log.i(TAG, "setupPrinter: Iniciando configuración de la impresora.")
         try {
             // Selecciona la primera impresora Bluetooth vinculada
             connection = BluetoothPrintersConnections.selectFirstPaired()
+
             if (connection == null) {
                 Toast.makeText(this, "No hay impresora vinculada. Vincúlala en ajustes BT.", Toast.LENGTH_LONG).show()
+                Log.e(TAG, "No se encontró impresora vinculada.")
             } else {
                 Toast.makeText(this, "Conectado a: ${connection?.device?.name}", Toast.LENGTH_SHORT).show()
+                Log.i(TAG, "Impresora detectada: ${connection?.device?.name} - Iniciando EscPosPrinter...")
+
                 // Ajusta los parámetros según tu impresora
-                // 203 dpi / 48 mm ancho de impresión / 32 caracteres
+                // 203 dpi / 48 mm / 32 chars
                 printer = EscPosPrinter(connection, 203, 48f, 32)
+                Log.i(TAG, "EscPosPrinter inicializado correctamente.")
             }
         } catch (e: Exception) {
             e.printStackTrace()
             Toast.makeText(this, "Error al configurar la impresora: ${e.message}", Toast.LENGTH_LONG).show()
+            Log.e(TAG, "Excepción en setupPrinter: ${e.message}", e)
         }
     }
 
     /**
-     * Obtiene una imagen aleatoria de la carpeta assets.
-     * Filtra por .png, .jpg, .jpeg (ignora mayúsculas/minúsculas).
+     * Obtiene un Pair<Bitmap?, String?> con un bitmap aleatorio de la carpeta assets y su nombre.
      */
-    private fun getRandomBitmapFromAssets(): Bitmap? {
+    private fun getRandomBitmapFromAssets(): Pair<Bitmap?, String?> {
+        Log.d(TAG, "getRandomBitmapFromAssets: Buscando archivos en assets.")
         return try {
             val fileNames = assets.list("")?.filter {
                 it.endsWith(".png", true) || it.endsWith(".jpg", true) || it.endsWith(".jpeg", true)
             } ?: emptyList()
 
             if (fileNames.isNotEmpty()) {
+                Log.d(TAG, "Imágenes encontradas en assets: $fileNames")
                 val randomFileName = fileNames[Random.nextInt(fileNames.size)]
+                Log.d(TAG, "Seleccionando archivo aleatorio: $randomFileName")
+
                 val inputStream: InputStream = assets.open(randomFileName)
                 val bitmap = BitmapFactory.decodeStream(inputStream)
                 inputStream.close()
-                bitmap
-            } else null
+
+                Log.i(TAG, "Imagen $randomFileName cargada correctamente.")
+                Pair(bitmap, randomFileName)
+            } else {
+                Log.w(TAG, "No se encontraron archivos de imagen en assets.")
+                Pair(null, null)
+            }
         } catch (e: Exception) {
             e.printStackTrace()
-            null
+            Log.e(TAG, "Error al abrir imagen de assets: ${e.message}", e)
+            Pair(null, null)
         }
     }
 
@@ -154,31 +181,42 @@ class MainActivity : AppCompatActivity() {
      */
     @SuppressLint("MissingPermission")
     private fun printBluetooth(bitmap: Bitmap) {
+        Log.d(TAG, "printBluetooth: Iniciando impresión.")
         try {
             if (connection == null || printer == null) {
                 Toast.makeText(this, "No hay impresora conectada", Toast.LENGTH_LONG).show()
+                Log.e(TAG, "No se puede imprimir: connection=$connection, printer=$printer")
                 return
             }
 
-            Log.i(TAG, "Iniciando impresión...")
-
+            Log.i(TAG, "Intentando conectar con la impresora físicamente (BluetoothConnection.connect())...")
             // Conectar físicamente (si no estaba conectado ya)
-            connection?.connect()
+            try {
+                connection?.connect()
+                Log.i(TAG, "Conexión Bluetooth establecida exitosamente.")
+                Toast.makeText(this, "Conexión establecida", Toast.LENGTH_SHORT).show()
+            } catch (ce: Exception) {
+                Toast.makeText(this, "Error al conectar: ${ce.message}", Toast.LENGTH_LONG).show()
+                Log.e(TAG, "Error al conectar con la impresora: ${ce.message}", ce)
+                return
+            }
 
-            // Escalar a 384 de ancho (típico en impresoras de 58mm)
+            // Escalar a 384 px de ancho (típico en impresoras de 58mm)
             val resizedBitmap = Bitmap.createScaledBitmap(
-                bitmap, 384,
-                (384f / bitmap.width * bitmap.height).toInt(), true
+                bitmap,
+                384,
+                (384f / bitmap.width * bitmap.height).toInt(),
+                true
             )
-            Log.i(TAG, "Imagen escalada")
+            Log.i(TAG, "Imagen escalada a 384px de ancho")
 
             // Convertir a escala de grises
             val grayscale = toGrayscale(resizedBitmap)
-            Log.i(TAG, "Imagen en grises")
+            Log.i(TAG, "Imagen convertida a grises")
 
             // Aplicar dithering Floyd-Steinberg
             val dithered = floydSteinbergDithering(grayscale)
-            Log.i(TAG, "Dithering aplicado")
+            Log.i(TAG, "Algoritmo Floyd-Steinberg aplicado")
 
             // Generar el texto que la impresora entiende para imprimir
             val textBuilder = StringBuilder()
@@ -194,18 +232,21 @@ class MainActivity : AppCompatActivity() {
                     )
                     .append("</img>\n")
             }
+            Log.d(TAG, "Texto para impresión generado. Longitud: ${textBuilder.length}")
 
             // Imprimir
             printer?.printFormattedText(textBuilder.toString())
+            Log.i(TAG, "Envío de datos a la impresora completado.")
 
             // Desconectar
             connection?.disconnect()
-
+            Log.i(TAG, "Conexión Bluetooth desconectada.")
             Toast.makeText(this, "Impresión finalizada", Toast.LENGTH_LONG).show()
 
         } catch (e: Exception) {
             e.printStackTrace()
             Toast.makeText(this, "Error al imprimir: ${e.message}", Toast.LENGTH_LONG).show()
+            Log.e(TAG, "Excepción durante printBluetooth: ${e.message}", e)
         }
     }
 
