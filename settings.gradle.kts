@@ -19,5 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "RandomImagePrint"
+rootProject.name = "MotionDejaVu"
 include(":app", ":escposprinter")

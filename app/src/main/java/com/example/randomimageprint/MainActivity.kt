@@ -224,8 +224,6 @@ class MainActivity : AppCompatActivity() {
                 val segmentHeight = if (y + 16 > dithered.height) dithered.height - y else 16
                 val segment = Bitmap.createBitmap(dithered, 0, y, dithered.width, segmentHeight)
 
-                //textBuilder.append("TEXTO DEMO")
-
                 textBuilder.append("<img>")
                     .append(
                         PrinterTextParserImg.bitmapToHexadecimalString(
@@ -235,6 +233,9 @@ class MainActivity : AppCompatActivity() {
                     .append("</img>\n")
 
             }
+
+            textBuilder.append("\n....\n\n")
+
             Log.d(TAG, "Texto para impresión generado. Longitud: ${textBuilder.length}")
 
             // Imprimir
