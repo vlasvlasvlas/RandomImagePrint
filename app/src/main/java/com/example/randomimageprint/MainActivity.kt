@@ -41,6 +41,64 @@ class MainActivity : AppCompatActivity() {
         }.toTypedArray()
     }
 
+    /**
+     * Lista de frases disponibles para imprimir de forma aleatoria.
+     */
+    private val listaFrases = listOf(
+        "compartido",
+        "torpedo",
+        "ring ring",
+        "misterio (homenaje a David lynch)",
+        "aceitoso",
+        "baba",
+        "jugo",
+        "tuki",
+        "sangre",
+        "ciempiés",
+        "salado",
+        "vértice",
+        "piano",
+        "robot solitario",
+        "robot melancólico",
+        "robot acompañado o compañía",
+        "lengua",
+        "salpicar y salticar",
+        "perezoso",
+        "pasito",
+        "anamorfia o grayskull",
+        "comer",
+        "algodón de azúcar y pochoclos",
+        "reintentar",
+        "carameloso",
+        "olor a mar",
+        "acá",
+        "espiar o tortuga gigante",
+        "culo al aire",
+        "aburrido",
+        "energúmeno",
+        "piernas separadas o abiertas",
+        "nublado maquinaria",
+        "mareo",
+        "monster hormiga",
+        "croqueta bb",
+        "trío",
+        "ano",
+        "tibieza",
+        "corridos",
+        "dedito o despeinado",
+        "pecas",
+        "caldo",
+        "brillantina",
+        "sailor Moon",
+        "nosotros",
+        "reunión de tupper",
+        "atrevida",
+        "fluo",
+        "cuádriceps",
+        "tensión muscular",
+        "habitual"
+    )
+
     // Manejo de la conexión con la impresora
     private var connection: BluetoothConnection? = null
     private var printer: EscPosPrinter? = null
@@ -96,7 +154,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Comprueba si todos los permisos de la lista están concedidos.
+     * Comprueba si ya tenemos todos los permisos concedidos.
      */
     private fun allPermissionsGranted(): Boolean {
         val allGranted = REQUIRED_PERMISSIONS.all { permiso ->
@@ -231,10 +289,11 @@ class MainActivity : AppCompatActivity() {
                         )
                     )
                     .append("</img>\n")
-
             }
 
-            textBuilder.append("\n....\n\n")
+            // Elige una frase aleatoria y agrégala al final
+            val randomPhrase = listaFrases[Random.nextInt(listaFrases.size)]
+            textBuilder.append("\n$randomPhrase\n\n")
 
             Log.d(TAG, "Texto para impresión generado. Longitud: ${textBuilder.length}")
 
